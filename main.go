@@ -135,7 +135,9 @@ func main() {
 
 	url := parseURL(args[0])
 
-	visit(url)
+	for i := 0; i < 5; i++ {
+		visit(url)
+	}
 }
 
 // readClientCert - helper function to read client certificate
