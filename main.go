@@ -60,6 +60,7 @@ var (
 	clientCertFile  string
 	fourOnly        bool
 	sixOnly         bool
+	iterations      int
 
 	// number of redirects followed
 	redirectsFollowed int
@@ -82,6 +83,7 @@ func init() {
 	flag.StringVar(&clientCertFile, "E", "", "client cert file for tls config")
 	flag.BoolVar(&fourOnly, "4", false, "resolve IPv4 addresses only")
 	flag.BoolVar(&sixOnly, "6", false, "resolve IPv6 addresses only")
+	flag.IntVar(&iterations, "i", 1, "Number of iterations")
 
 	flag.Usage = usage
 }
@@ -163,8 +165,6 @@ func main() {
 
 	var times []Result
 
-	var iterations = 2
-
 	for i := 0; i < iterations; i++ {
 		result, err := visit(url)
 
@@ -175,71 +175,73 @@ func main() {
 		times = append(times, result)
 	}
 
-	var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	var highest = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	if iterations > 1 {
+		var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		var highest = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	for _, res := range times {
-		total.dns_lookup += res.dns_lookup
-		total.tcp_connection += res.tcp_connection
-		total.tls_handshake += res.tls_handshake
-		total.server_processing += res.server_processing
-		total.content_transfer += res.content_transfer
-		total.namelookup += res.namelookup
-		total.connect += res.connect
-		total.pretransfer += res.pretransfer
-		total.starttransfer += res.starttransfer
-		total.total += res.total
+		for _, res := range times {
+			total.dns_lookup += res.dns_lookup
+			total.tcp_connection += res.tcp_connection
+			total.tls_handshake += res.tls_handshake
+			total.server_processing += res.server_processing
+			total.content_transfer += res.content_transfer
+			total.namelookup += res.namelookup
+			total.connect += res.connect
+			total.pretransfer += res.pretransfer
+			total.starttransfer += res.starttransfer
+			total.total += res.total
 
-		if res.dns_lookup > highest.dns_lookup {
-			highest.dns_lookup = res.dns_lookup
+			if res.dns_lookup > highest.dns_lookup {
+				highest.dns_lookup = res.dns_lookup
+			}
+			if res.tcp_connection > highest.tcp_connection {
+				highest.tcp_connection = res.tcp_connection
+			}
+			if res.tls_handshake > highest.tls_handshake {
+				highest.tls_handshake = res.tls_handshake
+			}
+			if res.server_processing > highest.server_processing {
+				highest.server_processing = res.server_processing
+			}
+			if res.content_transfer > highest.content_transfer {
+				highest.content_transfer = res.content_transfer
+			}
+			if res.namelookup > highest.namelookup {
+				highest.namelookup = res.namelookup
+			}
+			if res.connect > highest.connect {
+				highest.connect = res.connect
+			}
+			if res.pretransfer > highest.pretransfer {
+				highest.pretransfer = res.pretransfer
+			}
+			if res.starttransfer > highest.starttransfer {
+				highest.starttransfer = res.starttransfer
+			}
+			if res.total > highest.total {
+				highest.total = res.total
+			}
 		}
-		if res.tcp_connection > highest.tcp_connection {
-			highest.tcp_connection = res.tcp_connection
+
+		var avg = IntResult{
+			int(total.dns_lookup/time.Millisecond) / iterations,
+			int(total.tcp_connection/time.Millisecond) / iterations,
+			int(total.tls_handshake/time.Millisecond) / iterations,
+			int(total.server_processing/time.Millisecond) / iterations,
+			int(total.content_transfer/time.Millisecond) / iterations,
+			int(total.namelookup/time.Millisecond) / iterations,
+			int(total.connect/time.Millisecond) / iterations,
+			int(total.pretransfer/time.Millisecond) / iterations,
+			int(total.starttransfer/time.Millisecond) / iterations,
+			int(total.total/time.Millisecond) / iterations,
 		}
-		if res.tls_handshake > highest.tls_handshake {
-			highest.tls_handshake = res.tls_handshake
-		}
-		if res.server_processing > highest.server_processing {
-			highest.server_processing = res.server_processing
-		}
-		if res.content_transfer > highest.content_transfer {
-			highest.content_transfer = res.content_transfer
-		}
-		if res.namelookup > highest.namelookup {
-			highest.namelookup = res.namelookup
-		}
-		if res.connect > highest.connect {
-			highest.connect = res.connect
-		}
-		if res.pretransfer > highest.pretransfer {
-			highest.pretransfer = res.pretransfer
-		}
-		if res.starttransfer > highest.starttransfer {
-			highest.starttransfer = res.starttransfer
-		}
-		if res.total > highest.total {
-			highest.total = res.total
-		}
+
+		printf("\nAveraged over %d iterations:\n\n", iterations)
+		printIntResult(avg)
+
+		printf("\nHighest in %d iterations:\n\n", iterations)
+		printResult(highest)
 	}
-
-	var avg = IntResult{
-		int(total.dns_lookup/time.Millisecond) / iterations,
-		int(total.tcp_connection/time.Millisecond) / iterations,
-		int(total.tls_handshake/time.Millisecond) / iterations,
-		int(total.server_processing/time.Millisecond) / iterations,
-		int(total.content_transfer/time.Millisecond) / iterations,
-		int(total.namelookup/time.Millisecond) / iterations,
-		int(total.connect/time.Millisecond) / iterations,
-		int(total.pretransfer/time.Millisecond) / iterations,
-		int(total.starttransfer/time.Millisecond) / iterations,
-		int(total.total/time.Millisecond) / iterations,
-	}
-
-	printf("\nAveraged over %d iterations:\n\n", iterations)
-	printIntResult(avg)
-
-	printf("\nHighest in %d iterations:\n\n", iterations)
-	printResult(highest)
 }
 
 func printResult(res Result) {
