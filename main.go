@@ -48,19 +48,20 @@ const (
 
 var (
 	// Command line flags.
-	httpMethod      string
-	postBody        string
-	followRedirects bool
-	onlyHeader      bool
-	insecure        bool
-	httpHeaders     headers
-	saveOutput      bool
-	outputFile      string
-	showVersion     bool
-	clientCertFile  string
-	fourOnly        bool
-	sixOnly         bool
-	iterations      int
+	httpMethod        string
+	postBody          string
+	followRedirects   bool
+	onlyHeader        bool
+	insecure          bool
+	httpHeaders       headers
+	saveOutput        bool
+	outputFile        string
+	showVersion       bool
+	clientCertFile    string
+	fourOnly          bool
+	sixOnly           bool
+	iterations        int
+	hideSingleResults bool
 
 	// number of redirects followed
 	redirectsFollowed int
@@ -84,6 +85,7 @@ func init() {
 	flag.BoolVar(&fourOnly, "4", false, "resolve IPv4 addresses only")
 	flag.BoolVar(&sixOnly, "6", false, "resolve IPv6 addresses only")
 	flag.IntVar(&iterations, "i", 1, "Number of iterations")
+	flag.BoolVar(&hideSingleResults, "h", false, "Hide single results, only show average and highest")
 
 	flag.Usage = usage
 }
@@ -166,7 +168,7 @@ func main() {
 	var times []Result
 
 	for i := 0; i < iterations; i++ {
-		result, err := visit(url)
+		result, err := visit(url, hideSingleResults)
 
 		if err != nil {
 			return
@@ -408,7 +410,7 @@ func dialContext(network string) func(ctx context.Context, network, addr string)
 
 // visit visits a url and times the interaction.
 // If the response is a 30x, visit follows the redirect.
-func visit(url *url.URL) (Result, error) {
+func visit(url *url.URL, hideResult bool) (Result, error) {
 	req := newRequest(httpMethod, url, postBody)
 
 	var t0, t1, t2, t3, t4, t5, t6 time.Time
@@ -428,7 +430,9 @@ func visit(url *url.URL) (Result, error) {
 			}
 			t2 = time.Now()
 
-			printf("\n%s%s\n", color.GreenString("Connected to "), color.CyanString(addr))
+			if !hideResult {
+				printf("\n%s%s\n", color.GreenString("Connected to "), color.CyanString(addr))
+			}
 		},
 		GotConn:              func(_ httptrace.GotConnInfo) { t3 = time.Now() },
 		GotFirstResponseByte: func() { t4 = time.Now() },
@@ -492,7 +496,6 @@ func visit(url *url.URL) (Result, error) {
 			connectedVia = "TLSv1.3"
 		}
 	}
-	printf("\n%s %s\n", color.GreenString("Connected via"), color.CyanString("%s", connectedVia))
 
 	bodyMsg := readResponseBody(req, resp)
 	resp.Body.Close()
@@ -501,22 +504,6 @@ func visit(url *url.URL) (Result, error) {
 	if t0.IsZero() {
 		// we skipped DNS
 		t0 = t1
-	}
-
-	// print status line and headers
-	printf("\n%s%s%s\n", color.GreenString("HTTP"), grayscale(14)("/"), color.CyanString("%d.%d %s", resp.ProtoMajor, resp.ProtoMinor, resp.Status))
-
-	names := make([]string, 0, len(resp.Header))
-	for k := range resp.Header {
-		names = append(names, k)
-	}
-	sort.Sort(headers(names))
-	for _, k := range names {
-		printf("%s %s\n", grayscale(14)(k+":"), color.CyanString(strings.Join(resp.Header[k], ",")))
-	}
-
-	if bodyMsg != "" {
-		printf("\n%s\n", bodyMsg)
 	}
 
 	fmta := func(d time.Duration) string {
@@ -532,8 +519,6 @@ func visit(url *url.URL) (Result, error) {
 		v[0] = grayscale(16)(v[0])
 		return strings.Join(v, "\n")
 	}
-
-	fmt.Println()
 
 	var (
 		dns_lookup        = t1.Sub(t0)
@@ -556,31 +541,53 @@ func visit(url *url.URL) (Result, error) {
 		pretransfer = t3.Sub(t0)
 	}
 
-	switch url.Scheme {
-	case "https":
-		printf(colorize(httpsTemplate),
-			fmta(dns_lookup),
-			fmta(tcp_connection),
-			fmta(tls_handshake),
-			fmta(server_processing),
-			fmta(content_transfer),
-			fmtb(namelookup),
-			fmtb(connect),
-			fmtb(pretransfer),
-			fmtb(starttransfer),
-			fmtb(total),
-		)
-	case "http":
-		printf(colorize(httpTemplate),
-			fmta(dns_lookup),
-			fmta(tcp_connection),
-			fmta(server_processing),
-			fmta(content_transfer),
-			fmtb(namelookup),
-			fmtb(connect),
-			fmtb(starttransfer),
-			fmtb(total),
-		)
+	if !hideResult {
+		printf("\n%s %s\n", color.GreenString("Connected via"), color.CyanString("%s", connectedVia))
+
+		// print status line and headers
+		printf("\n%s%s%s\n", color.GreenString("HTTP"), grayscale(14)("/"), color.CyanString("%d.%d %s", resp.ProtoMajor, resp.ProtoMinor, resp.Status))
+
+		names := make([]string, 0, len(resp.Header))
+		for k := range resp.Header {
+			names = append(names, k)
+		}
+		sort.Sort(headers(names))
+		for _, k := range names {
+			printf("%s %s\n", grayscale(14)(k+":"), color.CyanString(strings.Join(resp.Header[k], ",")))
+		}
+
+		if bodyMsg != "" {
+			printf("\n%s\n", bodyMsg)
+		}
+
+		fmt.Println()
+
+		switch url.Scheme {
+		case "https":
+			printf(colorize(httpsTemplate),
+				fmta(dns_lookup),
+				fmta(tcp_connection),
+				fmta(tls_handshake),
+				fmta(server_processing),
+				fmta(content_transfer),
+				fmtb(namelookup),
+				fmtb(connect),
+				fmtb(pretransfer),
+				fmtb(starttransfer),
+				fmtb(total),
+			)
+		case "http":
+			printf(colorize(httpTemplate),
+				fmta(dns_lookup),
+				fmta(tcp_connection),
+				fmta(server_processing),
+				fmta(content_transfer),
+				fmtb(namelookup),
+				fmtb(connect),
+				fmtb(starttransfer),
+				fmtb(total),
+			)
+		}
 	}
 
 	if followRedirects && isRedirect(resp) {
@@ -598,7 +605,7 @@ func visit(url *url.URL) (Result, error) {
 			log.Fatalf("maximum number of redirects (%d) followed", maxRedirects)
 		}
 
-		visit(loc)
+		visit(loc, hideSingleResults)
 	}
 	return Result{
 		dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer,
