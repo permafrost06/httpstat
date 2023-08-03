@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -105,6 +106,19 @@ func grayscale(code color.Attribute) func(string, ...interface{}) string {
 	return color.New(code + 232).SprintfFunc()
 }
 
+type Result struct {
+	dns_lookup        time.Duration
+	tcp_connection    time.Duration
+	tls_handshake     time.Duration
+	server_processing time.Duration
+	content_transfer  time.Duration
+	namelookup        time.Duration
+	connect           time.Duration
+	pretransfer       time.Duration
+	starttransfer     time.Duration
+	total             time.Duration
+}
+
 func main() {
 	flag.Parse()
 
@@ -134,9 +148,100 @@ func main() {
 
 	url := parseURL(args[0])
 
-	for i := 0; i < 5; i++ {
-		visit(url)
+	var times []Result
+
+	colorize := func(s string) string {
+		v := strings.Split(s, "\n")
+		v[0] = grayscale(16)(v[0])
+		return strings.Join(v, "\n")
 	}
+
+	fmta := func(d int) string {
+		return color.CyanString("%dms", d)
+	}
+
+	fmtb := func(d int) string {
+		return color.CyanString("%-9s", strconv.Itoa(d)+"ms")
+	}
+
+	var iterations = 2
+
+	for i := 0; i < iterations; i++ {
+		result, err := visit(url)
+
+		if err != nil {
+			return
+		}
+
+		times = append(times, result)
+	}
+
+	var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	for _, res := range times {
+		total.dns_lookup += res.dns_lookup
+		total.tcp_connection += res.tcp_connection
+		total.tls_handshake += res.tls_handshake
+		total.server_processing += res.server_processing
+		total.content_transfer += res.content_transfer
+		total.namelookup += res.namelookup
+		total.connect += res.connect
+		total.pretransfer += res.pretransfer
+		total.starttransfer += res.starttransfer
+		total.total += res.total
+	}
+
+	avg := struct {
+		dns_lookup        int
+		tcp_connection    int
+		tls_handshake     int
+		server_processing int
+		content_transfer  int
+		namelookup        int
+		connect           int
+		pretransfer       int
+		starttransfer     int
+		total             int
+	}{
+		int(total.dns_lookup/time.Millisecond) / iterations,
+		int(total.tcp_connection/time.Millisecond) / iterations,
+		int(total.tls_handshake/time.Millisecond) / iterations,
+		int(total.server_processing/time.Millisecond) / iterations,
+		int(total.content_transfer/time.Millisecond) / iterations,
+		int(total.namelookup/time.Millisecond) / iterations,
+		int(total.connect/time.Millisecond) / iterations,
+		int(total.pretransfer/time.Millisecond) / iterations,
+		int(total.starttransfer/time.Millisecond) / iterations,
+		int(total.total/time.Millisecond) / iterations,
+	}
+
+	printf("\nAveraged over %d iterations:\n\n", iterations)
+
+	if total.tls_handshake != 0 {
+		printf(colorize(httpsTemplate),
+			fmta(avg.dns_lookup),
+			fmta(avg.tcp_connection),
+			fmta(avg.tls_handshake),
+			fmta(avg.server_processing),
+			fmta(avg.content_transfer),
+			fmtb(avg.namelookup),
+			fmtb(avg.connect),
+			fmtb(avg.pretransfer),
+			fmtb(avg.starttransfer),
+			fmtb(avg.total),
+		)
+		return
+	}
+
+	printf(colorize(httpTemplate),
+		fmta(avg.dns_lookup),
+		fmta(avg.tcp_connection),
+		fmta(avg.server_processing),
+		fmta(avg.content_transfer),
+		fmtb(avg.namelookup),
+		fmtb(avg.connect),
+		fmtb(avg.starttransfer),
+		fmtb(avg.total),
+	)
 }
 
 // readClientCert - helper function to read client certificate
@@ -217,7 +322,7 @@ func dialContext(network string) func(ctx context.Context, network, addr string)
 
 // visit visits a url and times the interaction.
 // If the response is a 30x, visit follows the redirect.
-func visit(url *url.URL) {
+func visit(url *url.URL) (Result, error) {
 	req := newRequest(httpMethod, url, postBody)
 
 	var t0, t1, t2, t3, t4, t5, t6 time.Time
@@ -344,30 +449,51 @@ func visit(url *url.URL) {
 
 	fmt.Println()
 
+	var (
+		dns_lookup        = t1.Sub(t0)
+		tcp_connection    = t2.Sub(t1)
+		server_processing = t4.Sub(t3)
+		content_transfer  = t7.Sub(t4)
+		namelookup        = t1.Sub(t0)
+		connect           = t2.Sub(t0)
+		starttransfer     = t4.Sub(t0)
+		total             = t7.Sub(t0)
+	)
+
+	var (
+		tls_handshake time.Duration
+		pretransfer   time.Duration
+	)
+
+	if url.Scheme == "https" {
+		tls_handshake = t6.Sub(t5)
+		pretransfer = t3.Sub(t0)
+	}
+
 	switch url.Scheme {
 	case "https":
 		printf(colorize(httpsTemplate),
-			fmta(t1.Sub(t0)), // dns lookup
-			fmta(t2.Sub(t1)), // tcp connection
-			fmta(t6.Sub(t5)), // tls handshake
-			fmta(t4.Sub(t3)), // server processing
-			fmta(t7.Sub(t4)), // content transfer
-			fmtb(t1.Sub(t0)), // namelookup
-			fmtb(t2.Sub(t0)), // connect
-			fmtb(t3.Sub(t0)), // pretransfer
-			fmtb(t4.Sub(t0)), // starttransfer
-			fmtb(t7.Sub(t0)), // total
+			fmta(dns_lookup),
+			fmta(tcp_connection),
+			fmta(tls_handshake),
+			fmta(server_processing),
+			fmta(content_transfer),
+			fmtb(namelookup),
+			fmtb(connect),
+			fmtb(pretransfer),
+			fmtb(starttransfer),
+			fmtb(total),
 		)
 	case "http":
 		printf(colorize(httpTemplate),
-			fmta(t1.Sub(t0)), // dns lookup
-			fmta(t3.Sub(t1)), // tcp connection
-			fmta(t4.Sub(t3)), // server processing
-			fmta(t7.Sub(t4)), // content transfer
-			fmtb(t1.Sub(t0)), // namelookup
-			fmtb(t3.Sub(t0)), // connect
-			fmtb(t4.Sub(t0)), // starttransfer
-			fmtb(t7.Sub(t0)), // total
+			fmta(dns_lookup),
+			fmta(tcp_connection),
+			fmta(server_processing),
+			fmta(content_transfer),
+			fmtb(namelookup),
+			fmtb(connect),
+			fmtb(starttransfer),
+			fmtb(total),
 		)
 	}
 
@@ -376,7 +502,7 @@ func visit(url *url.URL) {
 		if err != nil {
 			if err == http.ErrNoLocation {
 				// 30x but no Location to follow, give up.
-				return
+				return Result{}, errors.New("30x but no Location to follow")
 			}
 			log.Fatalf("unable to follow redirect: %v", err)
 		}
@@ -388,6 +514,10 @@ func visit(url *url.URL) {
 
 		visit(loc)
 	}
+	return Result{
+		dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer,
+		namelookup, connect, pretransfer, starttransfer, total,
+	}, nil
 }
 
 func isRedirect(resp *http.Response) bool {
