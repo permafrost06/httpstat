@@ -119,6 +119,19 @@ type Result struct {
 	total             time.Duration
 }
 
+type IntResult struct {
+	dns_lookup        int
+	tcp_connection    int
+	tls_handshake     int
+	server_processing int
+	content_transfer  int
+	namelookup        int
+	connect           int
+	pretransfer       int
+	starttransfer     int
+	total             int
+}
+
 func main() {
 	flag.Parse()
 
@@ -150,20 +163,6 @@ func main() {
 
 	var times []Result
 
-	colorize := func(s string) string {
-		v := strings.Split(s, "\n")
-		v[0] = grayscale(16)(v[0])
-		return strings.Join(v, "\n")
-	}
-
-	fmta := func(d int) string {
-		return color.CyanString("%dms", d)
-	}
-
-	fmtb := func(d int) string {
-		return color.CyanString("%-9s", strconv.Itoa(d)+"ms")
-	}
-
 	var iterations = 2
 
 	for i := 0; i < iterations; i++ {
@@ -177,6 +176,8 @@ func main() {
 	}
 
 	var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	var highest = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
 	for _, res := range times {
 		total.dns_lookup += res.dns_lookup
 		total.tcp_connection += res.tcp_connection
@@ -188,20 +189,40 @@ func main() {
 		total.pretransfer += res.pretransfer
 		total.starttransfer += res.starttransfer
 		total.total += res.total
+
+		if res.dns_lookup > highest.dns_lookup {
+			highest.dns_lookup = res.dns_lookup
+		}
+		if res.tcp_connection > highest.tcp_connection {
+			highest.tcp_connection = res.tcp_connection
+		}
+		if res.tls_handshake > highest.tls_handshake {
+			highest.tls_handshake = res.tls_handshake
+		}
+		if res.server_processing > highest.server_processing {
+			highest.server_processing = res.server_processing
+		}
+		if res.content_transfer > highest.content_transfer {
+			highest.content_transfer = res.content_transfer
+		}
+		if res.namelookup > highest.namelookup {
+			highest.namelookup = res.namelookup
+		}
+		if res.connect > highest.connect {
+			highest.connect = res.connect
+		}
+		if res.pretransfer > highest.pretransfer {
+			highest.pretransfer = res.pretransfer
+		}
+		if res.starttransfer > highest.starttransfer {
+			highest.starttransfer = res.starttransfer
+		}
+		if res.total > highest.total {
+			highest.total = res.total
+		}
 	}
 
-	avg := struct {
-		dns_lookup        int
-		tcp_connection    int
-		tls_handshake     int
-		server_processing int
-		content_transfer  int
-		namelookup        int
-		connect           int
-		pretransfer       int
-		starttransfer     int
-		total             int
-	}{
+	var avg = IntResult{
 		int(total.dns_lookup/time.Millisecond) / iterations,
 		int(total.tcp_connection/time.Millisecond) / iterations,
 		int(total.tls_handshake/time.Millisecond) / iterations,
@@ -215,32 +236,95 @@ func main() {
 	}
 
 	printf("\nAveraged over %d iterations:\n\n", iterations)
+	printIntResult(avg)
 
-	if total.tls_handshake != 0 {
+	printf("\nHighest in %d iterations:\n\n", iterations)
+	printResult(highest)
+}
+
+func printResult(res Result) {
+	fmta := func(d time.Duration) string {
+		return color.CyanString("%7dms", int(d/time.Millisecond))
+	}
+
+	fmtb := func(d time.Duration) string {
+		return color.CyanString("%-9s", strconv.Itoa(int(d/time.Millisecond))+"ms")
+	}
+
+	colorize := func(s string) string {
+		v := strings.Split(s, "\n")
+		v[0] = grayscale(16)(v[0])
+		return strings.Join(v, "\n")
+	}
+
+	if res.tls_handshake != 0 {
 		printf(colorize(httpsTemplate),
-			fmta(avg.dns_lookup),
-			fmta(avg.tcp_connection),
-			fmta(avg.tls_handshake),
-			fmta(avg.server_processing),
-			fmta(avg.content_transfer),
-			fmtb(avg.namelookup),
-			fmtb(avg.connect),
-			fmtb(avg.pretransfer),
-			fmtb(avg.starttransfer),
-			fmtb(avg.total),
+			fmta(res.dns_lookup),
+			fmta(res.tcp_connection),
+			fmta(res.tls_handshake),
+			fmta(res.server_processing),
+			fmta(res.content_transfer),
+			fmtb(res.namelookup),
+			fmtb(res.connect),
+			fmtb(res.pretransfer),
+			fmtb(res.starttransfer),
+			fmtb(res.total),
 		)
 		return
 	}
 
 	printf(colorize(httpTemplate),
-		fmta(avg.dns_lookup),
-		fmta(avg.tcp_connection),
-		fmta(avg.server_processing),
-		fmta(avg.content_transfer),
-		fmtb(avg.namelookup),
-		fmtb(avg.connect),
-		fmtb(avg.starttransfer),
-		fmtb(avg.total),
+		fmta(res.dns_lookup),
+		fmta(res.tcp_connection),
+		fmta(res.server_processing),
+		fmta(res.content_transfer),
+		fmtb(res.namelookup),
+		fmtb(res.connect),
+		fmtb(res.starttransfer),
+		fmtb(res.total),
+	)
+}
+
+func printIntResult(res IntResult) {
+	colorize := func(s string) string {
+		v := strings.Split(s, "\n")
+		v[0] = grayscale(16)(v[0])
+		return strings.Join(v, "\n")
+	}
+
+	fmta := func(d int) string {
+		return color.CyanString("%7dms", d)
+	}
+
+	fmtb := func(d int) string {
+		return color.CyanString("%-9s", strconv.Itoa(d)+"ms")
+	}
+
+	if res.tls_handshake != 0 {
+		printf(colorize(httpsTemplate),
+			fmta(res.dns_lookup),
+			fmta(res.tcp_connection),
+			fmta(res.tls_handshake),
+			fmta(res.server_processing),
+			fmta(res.content_transfer),
+			fmtb(res.namelookup),
+			fmtb(res.connect),
+			fmtb(res.pretransfer),
+			fmtb(res.starttransfer),
+			fmtb(res.total),
+		)
+		return
+	}
+
+	printf(colorize(httpTemplate),
+		fmta(res.dns_lookup),
+		fmta(res.tcp_connection),
+		fmta(res.server_processing),
+		fmta(res.content_transfer),
+		fmtb(res.namelookup),
+		fmtb(res.connect),
+		fmtb(res.starttransfer),
+		fmtb(res.total),
 	)
 }
 
