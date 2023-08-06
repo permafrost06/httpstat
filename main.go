@@ -84,8 +84,8 @@ func init() {
 	flag.StringVar(&clientCertFile, "E", "", "client cert file for tls config")
 	flag.BoolVar(&fourOnly, "4", false, "resolve IPv4 addresses only")
 	flag.BoolVar(&sixOnly, "6", false, "resolve IPv6 addresses only")
-	flag.IntVar(&iterations, "i", 1, "Number of iterations")
-	flag.BoolVar(&hideSingleResults, "h", false, "Hide single results, only show average and highest")
+	flag.IntVar(&iterations, "n", 1, "Number of iterations")
+	flag.BoolVar(&hideSingleResults, "q", false, "Hide single results, only show average and highest")
 
 	flag.Usage = usage
 }
