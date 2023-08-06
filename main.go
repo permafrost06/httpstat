@@ -111,19 +111,6 @@ func grayscale(code color.Attribute) func(string, ...interface{}) string {
 }
 
 type Result struct {
-	dns_lookup        time.Duration
-	tcp_connection    time.Duration
-	tls_handshake     time.Duration
-	server_processing time.Duration
-	content_transfer  time.Duration
-	namelookup        time.Duration
-	connect           time.Duration
-	pretransfer       time.Duration
-	starttransfer     time.Duration
-	total             time.Duration
-}
-
-type IntResult struct {
 	dns_lookup        int
 	tcp_connection    int
 	tls_handshake     int
@@ -134,6 +121,20 @@ type IntResult struct {
 	pretransfer       int
 	starttransfer     int
 	total             int
+}
+
+func colorize(s string) string {
+	v := strings.Split(s, "\n")
+	v[0] = grayscale(16)(v[0])
+	return strings.Join(v, "\n")
+}
+
+func fmta(d int) string {
+	return color.CyanString("%7dms", d)
+}
+
+func fmtb(d int) string {
+	return color.CyanString("%-9s", strconv.Itoa(d)+"ms")
 }
 
 func main() {
@@ -225,21 +226,21 @@ func main() {
 			}
 		}
 
-		var avg = IntResult{
-			int(total.dns_lookup/time.Millisecond) / iterations,
-			int(total.tcp_connection/time.Millisecond) / iterations,
-			int(total.tls_handshake/time.Millisecond) / iterations,
-			int(total.server_processing/time.Millisecond) / iterations,
-			int(total.content_transfer/time.Millisecond) / iterations,
-			int(total.namelookup/time.Millisecond) / iterations,
-			int(total.connect/time.Millisecond) / iterations,
-			int(total.pretransfer/time.Millisecond) / iterations,
-			int(total.starttransfer/time.Millisecond) / iterations,
-			int(total.total/time.Millisecond) / iterations,
+		var avg = Result{
+			total.dns_lookup / iterations,
+			total.tcp_connection / iterations,
+			total.tls_handshake / iterations,
+			total.server_processing / iterations,
+			total.content_transfer / iterations,
+			total.namelookup / iterations,
+			total.connect / iterations,
+			total.pretransfer / iterations,
+			total.starttransfer / iterations,
+			total.total / iterations,
 		}
 
 		printf("\nAveraged over %d iterations:\n\n", iterations)
-		printIntResult(avg)
+		printResult(avg)
 
 		printf("\nHighest in %d iterations:\n\n", iterations)
 		printResult(highest)
@@ -247,63 +248,6 @@ func main() {
 }
 
 func printResult(res Result) {
-	fmta := func(d time.Duration) string {
-		return color.CyanString("%7dms", int(d/time.Millisecond))
-	}
-
-	fmtb := func(d time.Duration) string {
-		return color.CyanString("%-9s", strconv.Itoa(int(d/time.Millisecond))+"ms")
-	}
-
-	colorize := func(s string) string {
-		v := strings.Split(s, "\n")
-		v[0] = grayscale(16)(v[0])
-		return strings.Join(v, "\n")
-	}
-
-	if res.tls_handshake != 0 {
-		printf(colorize(httpsTemplate),
-			fmta(res.dns_lookup),
-			fmta(res.tcp_connection),
-			fmta(res.tls_handshake),
-			fmta(res.server_processing),
-			fmta(res.content_transfer),
-			fmtb(res.namelookup),
-			fmtb(res.connect),
-			fmtb(res.pretransfer),
-			fmtb(res.starttransfer),
-			fmtb(res.total),
-		)
-		return
-	}
-
-	printf(colorize(httpTemplate),
-		fmta(res.dns_lookup),
-		fmta(res.tcp_connection),
-		fmta(res.server_processing),
-		fmta(res.content_transfer),
-		fmtb(res.namelookup),
-		fmtb(res.connect),
-		fmtb(res.starttransfer),
-		fmtb(res.total),
-	)
-}
-
-func printIntResult(res IntResult) {
-	colorize := func(s string) string {
-		v := strings.Split(s, "\n")
-		v[0] = grayscale(16)(v[0])
-		return strings.Join(v, "\n")
-	}
-
-	fmta := func(d int) string {
-		return color.CyanString("%7dms", d)
-	}
-
-	fmtb := func(d int) string {
-		return color.CyanString("%-9s", strconv.Itoa(d)+"ms")
-	}
-
 	if res.tls_handshake != 0 {
 		printf(colorize(httpsTemplate),
 			fmta(res.dns_lookup),
@@ -506,39 +450,25 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 		t0 = t1
 	}
 
-	fmta := func(d time.Duration) string {
-		return color.CyanString("%7dms", int(d/time.Millisecond))
-	}
-
-	fmtb := func(d time.Duration) string {
-		return color.CyanString("%-9s", strconv.Itoa(int(d/time.Millisecond))+"ms")
-	}
-
-	colorize := func(s string) string {
-		v := strings.Split(s, "\n")
-		v[0] = grayscale(16)(v[0])
-		return strings.Join(v, "\n")
-	}
-
 	var (
-		dns_lookup        = t1.Sub(t0)
-		tcp_connection    = t2.Sub(t1)
-		server_processing = t4.Sub(t3)
-		content_transfer  = t7.Sub(t4)
-		namelookup        = t1.Sub(t0)
-		connect           = t2.Sub(t0)
-		starttransfer     = t4.Sub(t0)
-		total             = t7.Sub(t0)
+		dns_lookup        = int(t1.Sub(t0) / time.Millisecond)
+		tcp_connection    = int(t2.Sub(t1) / time.Millisecond)
+		server_processing = int(t4.Sub(t3) / time.Millisecond)
+		content_transfer  = int(t7.Sub(t4) / time.Millisecond)
+		namelookup        = int(t1.Sub(t0) / time.Millisecond)
+		connect           = int(t2.Sub(t0) / time.Millisecond)
+		starttransfer     = int(t4.Sub(t0) / time.Millisecond)
+		total             = int(t7.Sub(t0) / time.Millisecond)
 	)
 
 	var (
-		tls_handshake time.Duration
-		pretransfer   time.Duration
+		tls_handshake int
+		pretransfer   int
 	)
 
 	if url.Scheme == "https" {
-		tls_handshake = t6.Sub(t5)
-		pretransfer = t3.Sub(t0)
+		tls_handshake = int(t6.Sub(t5) / time.Millisecond)
+		pretransfer = int(t3.Sub(t0) / time.Millisecond)
 	}
 
 	if !hideResult {
