@@ -169,6 +169,10 @@ func main() {
 	var times []Result
 
 	for i := 0; i < iterations; i++ {
+		if iterations > 1 {
+			printf("Running benchmark %d\n", i+1)
+		}
+
 		result, err := visit(url, hideSingleResults)
 
 		if err != nil {
