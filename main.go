@@ -88,6 +88,7 @@ var (
 	hideSingleResults bool
 	showTextResults   bool
 	resultsOnly       bool
+	csvFile           string
 
 	// number of redirects followed
 	redirectsFollowed int
@@ -114,6 +115,7 @@ func init() {
 	flag.BoolVar(&hideSingleResults, "q", false, "Hide single results, only show average and highest")
 	flag.BoolVar(&showTextResults, "t", false, "Show text results, default is graphical")
 	flag.BoolVar(&resultsOnly, "qh", false, "Only show results")
+	flag.StringVar(&csvFile, "w", "", "save results in a csv file")
 
 	flag.Usage = usage
 }
@@ -254,7 +256,9 @@ func main() {
 
 	printVarianceAndDeviation(times)
 
-	saveToFile(times)
+	if csvFile != "" {
+		saveToFile(times)
+	}
 }
 
 func getAvgAndHighest(times []Result) (avg Result, highest Result, tracker Result) {
@@ -362,7 +366,7 @@ func printVarianceAndDeviation(times []Result) {
 }
 
 func saveToFile(results []Result) {
-	fp, err := os.Create("results.csv")
+	fp, err := os.Create(csvFile)
 
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
@@ -370,7 +374,7 @@ func saveToFile(results []Result) {
 
 	csvWriter := csv.NewWriter(fp)
 
-	var data [][]string
+	data := [][]string{{"DNS Lookup", "TCP Connection", "TLS Handshake", "Server Processing", "Content Transfer", "namelookup", "connect", "pretransfer", "starttransfer", "total"}}
 	for _, result := range results {
 		row := []string{strconv.Itoa(result.dns_lookup), strconv.Itoa(result.tcp_connection), strconv.Itoa(result.tls_handshake),
 			strconv.Itoa(result.server_processing), strconv.Itoa(result.content_transfer), strconv.Itoa(result.namelookup),
