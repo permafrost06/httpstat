@@ -85,6 +85,7 @@ var (
 	iterations        int
 	hideSingleResults bool
 	showTextResults   bool
+	resultsOnly       bool
 
 	// number of redirects followed
 	redirectsFollowed int
@@ -110,6 +111,7 @@ func init() {
 	flag.IntVar(&iterations, "n", 1, "Number of iterations")
 	flag.BoolVar(&hideSingleResults, "q", false, "Hide single results, only show average and highest")
 	flag.BoolVar(&showTextResults, "t", false, "Show text results, default is graphical")
+	flag.BoolVar(&resultsOnly, "qh", false, "Only show results")
 
 	flag.Usage = usage
 }
@@ -434,7 +436,7 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 			}
 			t2 = time.Now()
 
-			if !hideResult {
+			if !hideResult && !resultsOnly {
 				printf("\n%s%s\n", color.GreenString("Connected to "), color.CyanString(addr))
 			}
 		},
@@ -532,25 +534,27 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 	}
 
 	if !hideResult {
-		printf("\n%s %s\n", color.GreenString("Connected via"), color.CyanString("%s", connectedVia))
+		if !resultsOnly {
+			printf("\n%s %s\n", color.GreenString("Connected via"), color.CyanString("%s", connectedVia))
 
-		// print status line and headers
-		printf("\n%s%s%s\n", color.GreenString("HTTP"), grayscale(14)("/"), color.CyanString("%d.%d %s", resp.ProtoMajor, resp.ProtoMinor, resp.Status))
+			// print status line and headers
+			printf("\n%s%s%s\n", color.GreenString("HTTP"), grayscale(14)("/"), color.CyanString("%d.%d %s", resp.ProtoMajor, resp.ProtoMinor, resp.Status))
 
-		names := make([]string, 0, len(resp.Header))
-		for k := range resp.Header {
-			names = append(names, k)
+			names := make([]string, 0, len(resp.Header))
+			for k := range resp.Header {
+				names = append(names, k)
+			}
+			sort.Sort(headers(names))
+			for _, k := range names {
+				printf("%s %s\n", grayscale(14)(k+":"), color.CyanString(strings.Join(resp.Header[k], ",")))
+			}
+
+			if bodyMsg != "" {
+				printf("\n%s\n", bodyMsg)
+			}
+
+			fmt.Println()
 		}
-		sort.Sort(headers(names))
-		for _, k := range names {
-			printf("%s %s\n", grayscale(14)(k+":"), color.CyanString(strings.Join(resp.Header[k], ",")))
-		}
-
-		if bodyMsg != "" {
-			printf("\n%s\n", bodyMsg)
-		}
-
-		fmt.Println()
 
 		printResult(Result{
 			dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer,
