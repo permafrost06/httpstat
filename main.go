@@ -246,8 +246,9 @@ func main() {
 
 	var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	var highest = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	var tracker = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	for _, res := range times {
+	for i, res := range times {
 		total.dns_lookup += res.dns_lookup
 		total.tcp_connection += res.tcp_connection
 		total.tls_handshake += res.tls_handshake
@@ -261,33 +262,43 @@ func main() {
 
 		if res.dns_lookup > highest.dns_lookup {
 			highest.dns_lookup = res.dns_lookup
+			tracker.dns_lookup = i
 		}
 		if res.tcp_connection > highest.tcp_connection {
 			highest.tcp_connection = res.tcp_connection
+			tracker.tcp_connection = i
 		}
 		if res.tls_handshake > highest.tls_handshake {
 			highest.tls_handshake = res.tls_handshake
+			tracker.tls_handshake = i
 		}
 		if res.server_processing > highest.server_processing {
 			highest.server_processing = res.server_processing
+			tracker.server_processing = i
 		}
 		if res.content_transfer > highest.content_transfer {
 			highest.content_transfer = res.content_transfer
+			tracker.content_transfer = i
 		}
 		if res.namelookup > highest.namelookup {
 			highest.namelookup = res.namelookup
+			tracker.namelookup = i
 		}
 		if res.connect > highest.connect {
 			highest.connect = res.connect
+			tracker.connect = i
 		}
 		if res.pretransfer > highest.pretransfer {
 			highest.pretransfer = res.pretransfer
+			tracker.pretransfer = i
 		}
 		if res.starttransfer > highest.starttransfer {
 			highest.starttransfer = res.starttransfer
+			tracker.starttransfer = i
 		}
 		if res.total > highest.total {
 			highest.total = res.total
+			tracker.total = i
 		}
 	}
 
@@ -308,7 +319,21 @@ func main() {
 	printResult(avg)
 
 	printf("\nHighest in %d iterations:\n\n", iterations)
-	printResult(highest)
+	printf("dns_lookup:\t\t %dms\ton run %d\n", highest.dns_lookup, tracker.dns_lookup)
+	printf("tcp_connection:\t\t %dms\ton run %d\n", highest.tcp_connection, tracker.tcp_connection)
+	if highest.tls_handshake > 1 {
+		printf("tls_handshake:\t\t %dms\ton run %d\n", highest.tls_handshake, tracker.tls_handshake)
+	}
+	printf("server_processing:\t %dms\ton run %d\n", highest.server_processing, tracker.server_processing)
+	printf("content_transfer:\t %dms\ton run %d\n", highest.content_transfer, tracker.content_transfer)
+	printf("namelookup:\t\t %dms\ton run %d\n", highest.namelookup, tracker.namelookup)
+	printf("connect:\t\t %dms\ton run %d\n", highest.connect, tracker.connect)
+	if highest.tls_handshake > 1 {
+		printf("pretransfer:\t\t %dms\ton run %d\n", highest.pretransfer, tracker.pretransfer)
+	}
+	printf("starttransfer:\t\t %dms\ton run %d\n", highest.starttransfer, tracker.starttransfer)
+	printf("total:\t\t\t %dms\ton run %d\n", highest.total, tracker.total)
+	fmt.Println()
 
 	totals := make([]float64, iterations)
 	for i, time := range times {
