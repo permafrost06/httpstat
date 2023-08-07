@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"mime"
 	"net"
 	"net/http"
@@ -136,6 +137,37 @@ func grayscale(code color.Attribute) func(string, ...interface{}) string {
 	return color.New(code + 232).SprintfFunc()
 }
 
+func calculateVariance(data []float64) float64 {
+	n := len(data)
+	if n <= 1 {
+		return 0.0 // Variance is undefined for n <= 1
+	}
+
+	// Calculate the mean
+	var sum float64
+	for _, value := range data {
+		sum += value
+	}
+	mean := sum / float64(n)
+
+	// Calculate the squared differences from the mean
+	var squaredDiffSum float64
+	for _, value := range data {
+		diff := value - mean
+		squaredDiffSum += diff * diff
+	}
+
+	// Calculate the sample variance using Bessel's correction
+	variance := squaredDiffSum / float64(n-1)
+	return variance
+}
+
+func calculateStandardDeviation(data []float64) float64 {
+	variance := calculateVariance(data) // Reuse the variance calculation function
+	standardDeviation := math.Sqrt(variance)
+	return standardDeviation
+}
+
 type Result struct {
 	dns_lookup        int
 	tcp_connection    int
@@ -208,73 +240,83 @@ func main() {
 		times = append(times, result)
 	}
 
-	if iterations > 1 {
-		var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-		var highest = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-
-		for _, res := range times {
-			total.dns_lookup += res.dns_lookup
-			total.tcp_connection += res.tcp_connection
-			total.tls_handshake += res.tls_handshake
-			total.server_processing += res.server_processing
-			total.content_transfer += res.content_transfer
-			total.namelookup += res.namelookup
-			total.connect += res.connect
-			total.pretransfer += res.pretransfer
-			total.starttransfer += res.starttransfer
-			total.total += res.total
-
-			if res.dns_lookup > highest.dns_lookup {
-				highest.dns_lookup = res.dns_lookup
-			}
-			if res.tcp_connection > highest.tcp_connection {
-				highest.tcp_connection = res.tcp_connection
-			}
-			if res.tls_handshake > highest.tls_handshake {
-				highest.tls_handshake = res.tls_handshake
-			}
-			if res.server_processing > highest.server_processing {
-				highest.server_processing = res.server_processing
-			}
-			if res.content_transfer > highest.content_transfer {
-				highest.content_transfer = res.content_transfer
-			}
-			if res.namelookup > highest.namelookup {
-				highest.namelookup = res.namelookup
-			}
-			if res.connect > highest.connect {
-				highest.connect = res.connect
-			}
-			if res.pretransfer > highest.pretransfer {
-				highest.pretransfer = res.pretransfer
-			}
-			if res.starttransfer > highest.starttransfer {
-				highest.starttransfer = res.starttransfer
-			}
-			if res.total > highest.total {
-				highest.total = res.total
-			}
-		}
-
-		var avg = Result{
-			total.dns_lookup / iterations,
-			total.tcp_connection / iterations,
-			total.tls_handshake / iterations,
-			total.server_processing / iterations,
-			total.content_transfer / iterations,
-			total.namelookup / iterations,
-			total.connect / iterations,
-			total.pretransfer / iterations,
-			total.starttransfer / iterations,
-			total.total / iterations,
-		}
-
-		printf("\nAveraged over %d iterations:\n\n", iterations)
-		printResult(avg)
-
-		printf("\nHighest in %d iterations:\n\n", iterations)
-		printResult(highest)
+	if iterations <= 1 {
+		return
 	}
+
+	var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	var highest = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	for _, res := range times {
+		total.dns_lookup += res.dns_lookup
+		total.tcp_connection += res.tcp_connection
+		total.tls_handshake += res.tls_handshake
+		total.server_processing += res.server_processing
+		total.content_transfer += res.content_transfer
+		total.namelookup += res.namelookup
+		total.connect += res.connect
+		total.pretransfer += res.pretransfer
+		total.starttransfer += res.starttransfer
+		total.total += res.total
+
+		if res.dns_lookup > highest.dns_lookup {
+			highest.dns_lookup = res.dns_lookup
+		}
+		if res.tcp_connection > highest.tcp_connection {
+			highest.tcp_connection = res.tcp_connection
+		}
+		if res.tls_handshake > highest.tls_handshake {
+			highest.tls_handshake = res.tls_handshake
+		}
+		if res.server_processing > highest.server_processing {
+			highest.server_processing = res.server_processing
+		}
+		if res.content_transfer > highest.content_transfer {
+			highest.content_transfer = res.content_transfer
+		}
+		if res.namelookup > highest.namelookup {
+			highest.namelookup = res.namelookup
+		}
+		if res.connect > highest.connect {
+			highest.connect = res.connect
+		}
+		if res.pretransfer > highest.pretransfer {
+			highest.pretransfer = res.pretransfer
+		}
+		if res.starttransfer > highest.starttransfer {
+			highest.starttransfer = res.starttransfer
+		}
+		if res.total > highest.total {
+			highest.total = res.total
+		}
+	}
+
+	var avg = Result{
+		total.dns_lookup / iterations,
+		total.tcp_connection / iterations,
+		total.tls_handshake / iterations,
+		total.server_processing / iterations,
+		total.content_transfer / iterations,
+		total.namelookup / iterations,
+		total.connect / iterations,
+		total.pretransfer / iterations,
+		total.starttransfer / iterations,
+		total.total / iterations,
+	}
+
+	printf("\nAveraged over %d iterations:\n\n", iterations)
+	printResult(avg)
+
+	printf("\nHighest in %d iterations:\n\n", iterations)
+	printResult(highest)
+
+	totals := make([]float64, iterations)
+	for i, time := range times {
+		totals[i] = float64(time.total)
+	}
+
+	fmt.Println("Variance of total times: ", calculateVariance(totals))
+	fmt.Println("Standard deviation of total times: ", calculateStandardDeviation(totals))
 }
 
 func printResult(res Result) {
