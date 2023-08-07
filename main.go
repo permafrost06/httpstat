@@ -230,8 +230,12 @@ func main() {
 	var times []Result
 
 	for i := 0; i < iterations; i++ {
+		if i > 0 && hideSingleResults {
+			printf("\u001b[1F")
+		}
+
 		if iterations > 1 {
-			printf("Running benchmark %d\n", i+1)
+			printf("Running benchmark %d of %d\n", i+1, iterations)
 		}
 
 		result, err := visit(url, hideSingleResults)
