@@ -244,9 +244,18 @@ func main() {
 		return
 	}
 
-	var total = Result{}
-	var highest = Result{}
-	var tracker = Result{}
+	avg, highest, tracker := getAvgAndHighest(times)
+
+	printf("\nAveraged over %d iterations:\n\n", iterations)
+	printResult(avg)
+
+	printHighest(highest, tracker)
+
+	printVarianceAndDeviation(times)
+}
+
+func getAvgAndHighest(times []Result) (avg Result, highest Result, tracker Result) {
+	total := Result{}
 
 	for i, res := range times {
 		total.dns_lookup += res.dns_lookup
@@ -302,7 +311,7 @@ func main() {
 		}
 	}
 
-	var avg = Result{
+	avg = Result{
 		total.dns_lookup / iterations,
 		total.tcp_connection / iterations,
 		total.tls_handshake / iterations,
@@ -315,9 +324,10 @@ func main() {
 		total.total / iterations,
 	}
 
-	printf("\nAveraged over %d iterations:\n\n", iterations)
-	printResult(avg)
+	return avg, highest, tracker
+}
 
+func printHighest(highest Result, tracker Result) {
 	https := highest.tls_handshake != 0
 
 	printf("\nHighest in %d iterations:\n\n", iterations)
@@ -336,7 +346,9 @@ func main() {
 	printf("starttransfer:\t\t %dms\ton run %d\n", highest.starttransfer, tracker.starttransfer)
 	printf("total:\t\t\t %dms\ton run %d\n", highest.total, tracker.total)
 	fmt.Println()
+}
 
+func printVarianceAndDeviation(times []Result) {
 	totals := make([]float64, iterations)
 	for i, time := range times {
 		totals[i] = float64(time.total)
