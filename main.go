@@ -244,9 +244,9 @@ func main() {
 		return
 	}
 
-	var total = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	var highest = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	var tracker = Result{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	var total = Result{}
+	var highest = Result{}
+	var tracker = Result{}
 
 	for i, res := range times {
 		total.dns_lookup += res.dns_lookup
@@ -318,17 +318,19 @@ func main() {
 	printf("\nAveraged over %d iterations:\n\n", iterations)
 	printResult(avg)
 
+	https := highest.tls_handshake != 0
+
 	printf("\nHighest in %d iterations:\n\n", iterations)
 	printf("dns_lookup:\t\t %dms\ton run %d\n", highest.dns_lookup, tracker.dns_lookup)
 	printf("tcp_connection:\t\t %dms\ton run %d\n", highest.tcp_connection, tracker.tcp_connection)
-	if highest.tls_handshake > 1 {
+	if https {
 		printf("tls_handshake:\t\t %dms\ton run %d\n", highest.tls_handshake, tracker.tls_handshake)
 	}
 	printf("server_processing:\t %dms\ton run %d\n", highest.server_processing, tracker.server_processing)
 	printf("content_transfer:\t %dms\ton run %d\n", highest.content_transfer, tracker.content_transfer)
 	printf("namelookup:\t\t %dms\ton run %d\n", highest.namelookup, tracker.namelookup)
 	printf("connect:\t\t %dms\ton run %d\n", highest.connect, tracker.connect)
-	if highest.tls_handshake > 1 {
+	if https {
 		printf("pretransfer:\t\t %dms\ton run %d\n", highest.pretransfer, tracker.pretransfer)
 	}
 	printf("starttransfer:\t\t %dms\ton run %d\n", highest.starttransfer, tracker.starttransfer)
@@ -345,7 +347,7 @@ func main() {
 }
 
 func printResult(res Result) {
-	var https = res.tls_handshake != 0
+	https := res.tls_handshake != 0
 
 	if https && showTextResults {
 		printf(httpsTextTemplate,
@@ -600,6 +602,8 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 		pretransfer = int(t3.Sub(t0) / time.Millisecond)
 	}
 
+	result := Result{dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer, namelookup, connect, pretransfer, starttransfer, total}
+
 	if !hideResult {
 		if !resultsOnly {
 			printf("\n%s %s\n", color.GreenString("Connected via"), color.CyanString("%s", connectedVia))
@@ -623,11 +627,7 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 			fmt.Println()
 		}
 
-		printResult(Result{
-			dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer,
-			namelookup, connect, pretransfer, starttransfer, total,
-		})
-
+		printResult(result)
 	}
 
 	if followRedirects && isRedirect(resp) {
@@ -647,10 +647,7 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 
 		visit(loc, hideSingleResults)
 	}
-	return Result{
-		dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer,
-		namelookup, connect, pretransfer, starttransfer, total,
-	}, nil
+	return result, nil
 }
 
 func isRedirect(resp *http.Response) bool {
