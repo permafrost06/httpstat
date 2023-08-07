@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/csv"
 	"encoding/pem"
 	"errors"
 	"flag"
@@ -252,6 +253,8 @@ func main() {
 	printHighest(highest, tracker)
 
 	printVarianceAndDeviation(times)
+
+	saveToFile(times)
 }
 
 func getAvgAndHighest(times []Result) (avg Result, highest Result, tracker Result) {
@@ -356,6 +359,29 @@ func printVarianceAndDeviation(times []Result) {
 
 	printf("Variance of total times: %.2f\n", calculateVariance(totals))
 	printf("Standard deviation of total times: %.2f\n", calculateStandardDeviation(totals))
+}
+
+func saveToFile(results []Result) {
+	fp, err := os.Create("results.csv")
+
+	if err != nil {
+		log.Fatalf("failed creating file: %s", err)
+	}
+
+	csvWriter := csv.NewWriter(fp)
+
+	var data [][]string
+	for _, result := range results {
+		row := []string{strconv.Itoa(result.dns_lookup), strconv.Itoa(result.tcp_connection), strconv.Itoa(result.tls_handshake),
+			strconv.Itoa(result.server_processing), strconv.Itoa(result.content_transfer), strconv.Itoa(result.namelookup),
+			strconv.Itoa(result.connect), strconv.Itoa(result.pretransfer), strconv.Itoa(result.starttransfer), strconv.Itoa(result.total)}
+		data = append(data, row)
+	}
+
+	csvWriter.WriteAll(data)
+	csvWriter.Flush()
+
+	fp.Close()
 }
 
 func printResult(res Result) {
