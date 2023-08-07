@@ -340,8 +340,8 @@ func main() {
 		totals[i] = float64(time.total)
 	}
 
-	fmt.Println("Variance of total times: ", calculateVariance(totals))
-	fmt.Println("Standard deviation of total times: ", calculateStandardDeviation(totals))
+	printf("Variance of total times: %.2f\n", calculateVariance(totals))
+	printf("Standard deviation of total times: %.2f\n", calculateStandardDeviation(totals))
 }
 
 func printResult(res Result) {
