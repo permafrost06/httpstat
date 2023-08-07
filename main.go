@@ -44,6 +44,28 @@ const (
 		`                        connect:%s         |                  |` + "\n" +
 		`                                      starttransfer:%s        |` + "\n" +
 		`                                                                 total:%s` + "\n"
+
+	httpsTextTemplate = `` +
+		`DNS Lookup: %dms` + "\n" +
+		`namelookup: %dms` + "\n" +
+		`TCP Connection: %dms` + "\n" +
+		`connect: %dms` + "\n" +
+		`TLS Handshake: %dms` + "\n" +
+		`pretransfer: %dms` + "\n" +
+		`Server Processing: %dms` + "\n" +
+		`starttransfer: %dms` + "\n" +
+		`Content Transfer: %dms` + "\n" +
+		`Total: %dms` + "\n\n"
+
+	httpTextTemplate = `` +
+		`DNS Lookup: %dms` + "\n" +
+		`namelookup: %dms` + "\n" +
+		`TCP Connection: %dms` + "\n" +
+		`connect: %dms` + "\n" +
+		`Server Processing: %dms` + "\n" +
+		`starttransfer: %dms` + "\n" +
+		`Content Transfer: %dms` + "\n" +
+		`Total: %dms` + "\n\n"
 )
 
 var (
@@ -62,6 +84,7 @@ var (
 	sixOnly           bool
 	iterations        int
 	hideSingleResults bool
+	showTextResults   bool
 
 	// number of redirects followed
 	redirectsFollowed int
@@ -86,6 +109,7 @@ func init() {
 	flag.BoolVar(&sixOnly, "6", false, "resolve IPv6 addresses only")
 	flag.IntVar(&iterations, "n", 1, "Number of iterations")
 	flag.BoolVar(&hideSingleResults, "q", false, "Hide single results, only show average and highest")
+	flag.BoolVar(&showTextResults, "t", false, "Show text results, default is graphical")
 
 	flag.Usage = usage
 }
@@ -252,7 +276,39 @@ func main() {
 }
 
 func printResult(res Result) {
-	if res.tls_handshake != 0 {
+	var https = res.tls_handshake != 0
+
+	if https && showTextResults {
+		printf(httpsTextTemplate,
+			res.dns_lookup,
+			res.tcp_connection,
+			res.tls_handshake,
+			res.server_processing,
+			res.content_transfer,
+			res.namelookup,
+			res.connect,
+			res.pretransfer,
+			res.starttransfer,
+			res.total,
+		)
+		return
+	}
+
+	if !https && showTextResults {
+		printf(httpTextTemplate,
+			res.dns_lookup,
+			res.tcp_connection,
+			res.server_processing,
+			res.content_transfer,
+			res.namelookup,
+			res.connect,
+			res.starttransfer,
+			res.total,
+		)
+		return
+	}
+
+	if https {
 		printf(colorize(httpsTemplate),
 			fmta(res.dns_lookup),
 			fmta(res.tcp_connection),
@@ -496,32 +552,11 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 
 		fmt.Println()
 
-		switch url.Scheme {
-		case "https":
-			printf(colorize(httpsTemplate),
-				fmta(dns_lookup),
-				fmta(tcp_connection),
-				fmta(tls_handshake),
-				fmta(server_processing),
-				fmta(content_transfer),
-				fmtb(namelookup),
-				fmtb(connect),
-				fmtb(pretransfer),
-				fmtb(starttransfer),
-				fmtb(total),
-			)
-		case "http":
-			printf(colorize(httpTemplate),
-				fmta(dns_lookup),
-				fmta(tcp_connection),
-				fmta(server_processing),
-				fmta(content_transfer),
-				fmtb(namelookup),
-				fmtb(connect),
-				fmtb(starttransfer),
-				fmtb(total),
-			)
-		}
+		printResult(Result{
+			dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer,
+			namelookup, connect, pretransfer, starttransfer, total,
+		})
+
 	}
 
 	if followRedirects && isRedirect(resp) {
