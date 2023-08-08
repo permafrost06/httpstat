@@ -658,28 +658,23 @@ func visit(url *url.URL, hideResult bool) (Result, error) {
 		t0 = t1
 	}
 
-	var (
-		dns_lookup        = int(t1.Sub(t0) / time.Millisecond)
-		tcp_connection    = int(t2.Sub(t1) / time.Millisecond)
-		server_processing = int(t4.Sub(t3) / time.Millisecond)
-		content_transfer  = int(t7.Sub(t4) / time.Millisecond)
-		namelookup        = int(t1.Sub(t0) / time.Millisecond)
-		connect           = int(t2.Sub(t0) / time.Millisecond)
-		starttransfer     = int(t4.Sub(t0) / time.Millisecond)
-		total             = int(t7.Sub(t0) / time.Millisecond)
-	)
-
-	var (
-		tls_handshake int
-		pretransfer   int
-	)
-
-	if url.Scheme == "https" {
-		tls_handshake = int(t6.Sub(t5) / time.Millisecond)
-		pretransfer = int(t3.Sub(t0) / time.Millisecond)
+	result := Result{
+		int(t1.Sub(t0) / time.Millisecond),
+		int(t2.Sub(t1) / time.Millisecond),
+		0,
+		int(t4.Sub(t3) / time.Millisecond),
+		int(t7.Sub(t4) / time.Millisecond),
+		int(t1.Sub(t0) / time.Millisecond),
+		int(t2.Sub(t0) / time.Millisecond),
+		0,
+		int(t4.Sub(t0) / time.Millisecond),
+		int(t7.Sub(t0) / time.Millisecond),
 	}
 
-	result := Result{dns_lookup, tcp_connection, tls_handshake, server_processing, content_transfer, namelookup, connect, pretransfer, starttransfer, total}
+	if url.Scheme == "https" {
+		result.tls_handshake = int(t6.Sub(t5) / time.Millisecond)
+		result.pretransfer = int(t3.Sub(t0) / time.Millisecond)
+	}
 
 	if !hideResult {
 		if !resultsOnly {
