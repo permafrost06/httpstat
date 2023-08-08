@@ -251,14 +251,7 @@ func main() {
 		return
 	}
 
-	avg, highest, tracker := getAvgAndHighest(times)
-
-	printf("\nAveraged over %d iterations:\n\n", iterations)
-	printResult(avg)
-
-	printHighest(highest, tracker)
-
-	printVarianceAndDeviation(times)
+	printBenchmarkResults(times)
 
 	if csvFile != "" {
 		saveToFile(times)
@@ -338,25 +331,63 @@ func getAvgAndHighest(times []Result) (avg Result, highest Result, tracker Resul
 	return avg, highest, tracker
 }
 
-func printHighest(highest Result, tracker Result) {
+func printBenchmarkResults(times []Result) {
+	avg, highest, tracker := getAvgAndHighest(times)
 	https := highest.tls_handshake != 0
 
-	printf("\nHighest in %d iterations:\n\n", iterations)
-	printf("dns_lookup:\t\t %dms\ton run %d\n", highest.dns_lookup, tracker.dns_lookup)
-	printf("tcp_connection:\t\t %dms\ton run %d\n", highest.tcp_connection, tracker.tcp_connection)
+	const httpsBenchmarkResultTemplate = `Benchmark stats:
+                   Average   Maximum
+DNS Lookup:         %4dms    %4dms (on run %d)
+namelookup:         %4dms    %4dms (on run %d)
+TCP Connection:     %4dms    %4dms (on run %d)
+connect:            %4dms    %4dms (on run %d)
+TLS Handshake:      %4dms    %4dms (on run %d)
+pretransfer:        %4dms    %4dms (on run %d)
+Server Processing:  %4dms    %4dms (on run %d)
+starttransfer:      %4dms    %4dms (on run %d)
+Content Transfer:   %4dms    %4dms (on run %d)
+Total:              %4dms    %4dms (on run %d)
+`
+
+	const httpBenchmarkResultTemplate = `Benchmark stats:
+                   Average   Maximum
+DNS Lookup:         %4dms    %4dms (on run %d)
+namelookup:         %4dms    %4dms (on run %d)
+TCP Connection:     %4dms    %4dms (on run %d)
+connect:            %4dms    %4dms (on run %d)
+Server Processing:  %4dms    %4dms (on run %d)
+starttransfer:      %4dms    %4dms (on run %d)
+Content Transfer:   %4dms    %4dms (on run %d)
+Total:              %4dms    %4dms (on run %d)
+`
+
 	if https {
-		printf("tls_handshake:\t\t %dms\ton run %d\n", highest.tls_handshake, tracker.tls_handshake)
+		printf(httpsBenchmarkResultTemplate,
+			avg.dns_lookup, highest.dns_lookup, tracker.dns_lookup,
+			avg.namelookup, highest.namelookup, tracker.namelookup,
+			avg.tcp_connection, highest.tcp_connection, tracker.tcp_connection,
+			avg.connect, highest.connect, tracker.connect,
+			avg.tls_handshake, highest.tls_handshake, tracker.tls_handshake,
+			avg.pretransfer, highest.pretransfer, tracker.pretransfer,
+			avg.server_processing, highest.server_processing, tracker.server_processing,
+			avg.starttransfer, highest.starttransfer, tracker.starttransfer,
+			avg.content_transfer, highest.content_transfer, tracker.content_transfer,
+			avg.total, highest.total, tracker.total,
+		)
+	} else {
+		printf(httpBenchmarkResultTemplate,
+			avg.dns_lookup, highest.dns_lookup, tracker.dns_lookup,
+			avg.namelookup, highest.namelookup, tracker.namelookup,
+			avg.tcp_connection, highest.tcp_connection, tracker.tcp_connection,
+			avg.connect, highest.connect, tracker.connect,
+			avg.server_processing, highest.server_processing, tracker.server_processing,
+			avg.starttransfer, highest.starttransfer, tracker.starttransfer,
+			avg.content_transfer, highest.content_transfer, tracker.content_transfer,
+			avg.total, highest.total, tracker.total,
+		)
 	}
-	printf("server_processing:\t %dms\ton run %d\n", highest.server_processing, tracker.server_processing)
-	printf("content_transfer:\t %dms\ton run %d\n", highest.content_transfer, tracker.content_transfer)
-	printf("namelookup:\t\t %dms\ton run %d\n", highest.namelookup, tracker.namelookup)
-	printf("connect:\t\t %dms\ton run %d\n", highest.connect, tracker.connect)
-	if https {
-		printf("pretransfer:\t\t %dms\ton run %d\n", highest.pretransfer, tracker.pretransfer)
-	}
-	printf("starttransfer:\t\t %dms\ton run %d\n", highest.starttransfer, tracker.starttransfer)
-	printf("total:\t\t\t %dms\ton run %d\n", highest.total, tracker.total)
-	fmt.Println()
+
+	printVarianceAndDeviation(times)
 }
 
 func printVarianceAndDeviation(times []Result) {
